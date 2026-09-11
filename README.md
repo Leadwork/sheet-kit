@@ -1,5 +1,13 @@
 # SheetKit
 
+## Update an existing installation to v0.2
+
+Replace the contents of **Code.gs**, **Core.gs**, and **Sidebar.html** in your
+existing Apps Script project with the matching files under src. Do not create
+additional files or add an extension twice. The manifest is unchanged.
+Save, close the old sidebar, reload the spreadsheet, and open SheetKit again.
+GitHub updates do not automatically update manually installed scripts.
+
 Three focused tools in a Google Sheets sidebar, built with Google Apps Script.
 No paid API, hosting, or Ablebits subscription required. Google account quotas apply.
 
@@ -28,15 +36,27 @@ Select a rectangular range, choose a tool, review **First selected row is a head
 then click **Preview selection → Back up & apply**.
 
 - **Remove duplicate rows:** compares every selected column and keeps the first
-  occurrence, using Google's native case-insensitive duplicate removal. The preview
-  count is an estimate; Google's matching semantics determine the result.
-  Only selected cells compact upward. Select your entire table to avoid misaligning
-  columns outside the selection. Blank duplicate rows are included.
+  occurrence. Choose **Delete entire rows** to delete matching sheet rows across
+  all columns, including unselected cells, or **Highlight duplicate cells** to
+  color only the repeated rows' selected cells yellow without deleting data.
+  Text comparisons ignore case; numbers and text remain distinct, dates compare
+  by timestamp, and formulas compare by their calculated values. Blank duplicate
+  rows are included. Hidden/filtered rows inside the selection are included.
+  Highlighting leaves the first occurrence and unrelated cell colors unchanged;
+  conditional formatting can override the visible yellow fill. It does not clear
+  highlights from earlier runs. Preview and apply use the same matching logic.
 - **Merge values:** join each row, each column, or the whole selection. Supports
   comma, space, newline, semicolon, no separator, and custom separators.
   Uses displayed text, including formatted dates/numbers and formula results.
-  Writes to the leftmost/top/top-left cell and clears remaining selected contents.
-  It does not physically merge spreadsheet cells.
+  **New column(s)** inserts columns immediately right of your selection and keeps
+  the source intact. Row merges put each result on its original row in one new
+  column; entire-selection merges put one result at the first data row. Column
+  merges create one new column per selected column, with results on the first
+  data row. Existing neighboring columns shift right, not overwritten.
+  With headers enabled, output columns receive a Merged values heading.
+  **Selected cells** keeps the original replace behavior: writes to the
+  leftmost/top/top-left cell and clears remaining selected contents.
+  Neither option physically merges spreadsheet cells.
 - **Change case:** lowercase, title case, or sentence case. Skips formulas, numbers
   and dates. Title case capitalizes every word, not editorial headline style.
   Sentence case uses punctuation followed by whitespace as sentence boundaries;
@@ -62,6 +82,7 @@ not an automatic transactional rollback.
 - Maximum 20,000 selected cells per run.
 - Maximum 500 changed text cells per case run.
 - Maximum 500 merged output cells per run.
+- Maximum 500 separate duplicate groups per run.
 - Merged values cannot exceed 50,000 characters per output cell.
 - Merged source cells and multiple selections are rejected.
 - The document lock serializes SheetKit runs, but cannot block edits by other people.
@@ -96,6 +117,12 @@ mixed-case text, and a literal string starting with `=`.
 4. Check each backup contains the original data.
 5. Preview, edit a source cell, and apply: expect a stale-preview error.
 6. Preview, change selection, and apply: expect the original preview range to change.
+7. Select only a subset of table columns and delete duplicate rows; check entire
+   rows disappear, including cells outside the selection, with the first kept.
+8. Highlight duplicates; check only later matches' selected cells turn yellow and
+   all values remain unchanged.
+9. Merge to new columns with populated neighboring columns, with and without a
+   header, in all three directions. Check the source and shifted neighbor survive.
 
 ## References
 

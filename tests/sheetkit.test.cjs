@@ -11,6 +11,67 @@ function context(extra = {}) {
 }
 const c = context();
 const plain = x => JSON.parse(JSON.stringify(x));
+test('duplicate plan identifies only later matches across all selected columns', () => {
+  const data = [['A',1],['a',1],['a',2],['A',1],['', ''],['', '']];
+  const p = c.plan_(data, [], data, {tool:'dedupe',action:'highlight'});
+  assert.deepEqual(plain(p.duplicates), [1,3,5]);
+  assert.match(p.summary, /Highlight 3/);
+});
+test('full row deletion uses absolute row offsets and bottom-up groups', () => {
+  const rows = Array.from({length:12}, (_,i)=>['selected '+i,'outside '+i]);
+  const original = rows.slice();
+  const calls = [];
+  const sheet = {deleteRows:(start,count)=>{calls.push([start,count]);rows.splice(start-1,count);}};
+  c.applyDuplicates_(sheet,{getRow:()=>4},[1,2,5],'deleteRows');
+  assert.deepEqual(calls,[[9,1],[5,2]]);
+  assert.deepEqual(rows, original.filter((_,i)=>![4,5,8].includes(i)));
+});
+test('highlight targets only selected columns and never deletes data', () => {
+  const calls=[];
+  const sheet={getRange:(...args)=>({setBackground:color=>calls.push([...args,color])})};
+  c.applyDuplicates_(sheet,{getRow:()=>4,getColumn:()=>2,getNumColumns:()=>3},[1,2,5],'highlight');
+  assert.deepEqual(calls,[[9,2,1,3,'#fff2cc'],[5,2,2,3,'#fff2cc']]);
+});
+test('protected or merged cells outside selection prevent full row deletion', () => {
+  const data={getRow:()=>3}, plan={duplicates:[1]}, options={tool:'dedupe',action:'deleteRows'};
+  assert.throws(()=>c.checkDuplicateRows_({getMaxColumns:()=>10,getRange:()=>({canEdit:()=>false})},data,plan,options),/protected/);
+  assert.throws(()=>c.checkDuplicateRows_({getMaxColumns:()=>10,getRange:()=>({canEdit:()=>true,isPartOfMerge:()=>true})},data,plan,options),/merged/);
+});
+test('new column merges preserve source and existing neighbor in all directions', () => {
+  for (const direction of ['rows','columns','all']) {
+    for (const header of [true,false]) {
+      const rows=[['H1','H2','NEIGHBOR'],['=literal','b','keep1'],['c','d','keep2']];
+      const before=JSON.parse(JSON.stringify(rows));
+      const first=header?2:1;
+      const dataValues=rows.slice(first-1).map(row=>row.slice(0,2));
+      const o={tool:'merge',direction,destination:'newColumns',header,separator:'|',skipEmpty:true};
+      const plan=c.plan_(dataValues,[],dataValues,o);
+      const ctx=context();
+      ctx.writeText_=(cell,text)=>{rows[cell.r-1][cell.c-1]=text;};
+      const makeRange=(r,col)=>({r,c:col,getCell:(dr,dc)=>({r:r+dr-1,c:col+dc-1})});
+      const sheet={
+        insertColumnsAfter:(col,width)=>rows.forEach(row=>row.splice(col,0,...Array(width).fill(''))),
+        getRange:(r,col)=>makeRange(r,col)
+      };
+      ctx.applyMerge_(sheet,{getLastColumn:()=>2,getRow:()=>1},
+        {getRow:()=>first,getNumRows:()=>dataValues.length,getNumColumns:()=>2},plan,o);
+      const width=direction==='columns'?2:1;
+      rows.forEach((row,i)=>{
+        assert.deepEqual(row.slice(0,2),before[i].slice(0,2));
+        assert.equal(row[2+width],before[i][2]);
+      });
+      plan.writes.forEach(w=>assert.equal(rows[first-1+w.row][2+w.col],w.text));
+      if(header) assert.match(rows[0][2],/Merged values/);
+    }
+  }
+});
+test('replace merge remains available and clears only source contents', () => {
+  const calls=[], ctx=context();
+  ctx.writeText_=(cell,text)=>calls.push(['write',cell,text]);
+  const data={clearContent:()=>calls.push('clear'),getCell:(r,col)=>[r,col]};
+  ctx.applyMerge_({}, {}, data, {writes:[{row:0,col:0,text:'a b'}]}, {destination:'replace'});
+  assert.deepEqual(plain(calls),['clear',['write',[1,1],'a b']]);
+});
 test('case modes handle apostrophes, accents, punctuation and Bengali', () => {
   assert.equal(c.changeCase_("JOHN'S CAFÉ", 'title'), "John's Café");
   assert.equal(c.changeCase_('hELLO. hOW ARE YOU? “GOOD!”', 'sentence'), 'Hello. How are you? “Good!”');
@@ -21,7 +82,7 @@ test('case skips formulas, numeric and date values', () => {
   assert.deepEqual(plain(p.writes), [{row:0,col:0,text:'hello'}]);
 });
 test('duplicates ignore letter case, keep typed values distinct and match dates', () => {
-  const p = c.plan_([['A',new Date(0)],['a',new Date(0)],['1',2],[1,2]], [], [['a']], {tool:'dedupe'});
+  const p = c.plan_([['A',new Date(0)],['a',new Date(0)],['1',2],[1,2]], [], [['A'],['a'],['1'],['1']], {tool:'dedupe'});
   assert.equal(p.count, 1);
 });
 test('merge directions, empty cells and literal formulas', () => {
@@ -49,7 +110,7 @@ function harness({changed=false, backupFailure=false, writeFailure=false} = {}) 
   const backup = {setName:n=>calls.push('name'),getName:()=> 'SK Backup test'};
   const sheet = {getSheetId:()=>1,getRange:()=>range,copyTo:()=>{calls.push('backup');if(backupFailure)throw Error('Copy failed');return backup;}};
   const ss = {getSheets:()=>[sheet],setActiveSheet:()=>{}};
-  let record = JSON.stringify({sheetId:1,a1:'A1:A2',digest:'original',options:{tool:'case',mode:'lower',header:true}});
+  let record = JSON.stringify({version:2,sheetId:1,a1:'A1:A2',digest:'original',options:{tool:'case',mode:'lower',header:true}});
   const ctx = context({
     LockService:{getDocumentLock:()=>({tryLock:()=>true,releaseLock:()=>calls.push('unlock')})},
     CacheService:{getUserCache:()=>({get:()=>record,remove:()=>{record=null;}})},

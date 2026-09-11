@@ -2,7 +2,13 @@ function options_(input) {
   input = input || {};
   if (['dedupe', 'merge', 'case'].indexOf(input.tool) < 0) throw new Error('Choose a supported tool.');
   var o = {tool: input.tool, header: input.header === true};
+  if (o.tool === 'dedupe') {
+    o.action = input.action || 'deleteRows';
+    if (['deleteRows', 'highlight'].indexOf(o.action) < 0) throw new Error('Choose a duplicate action.');
+  }
   if (o.tool === 'merge') {
+    o.destination = input.destination || 'replace';
+    if (['replace', 'newColumns'].indexOf(o.destination) < 0) throw new Error('Choose an output destination.');
     if (['rows', 'columns', 'all'].indexOf(input.direction) < 0) throw new Error('Choose a merge direction.');
     o.direction = input.direction;
     o.separator = typeof input.separator === 'string' ? input.separator : ', ';
@@ -32,16 +38,18 @@ function rowKey_(row) {
   }));
 }
 function plan_(values, formulas, display, o) {
-  var writes = [], sample = [], count = 0, summary;
+  var writes = [], sample = [], count = 0, summary, duplicates = [];
   if (o.tool === 'dedupe') {
     var seen = Object.create(null);
-    values.forEach(function(row) {
+    values.forEach(function(row, index) {
       var key = rowKey_(row);
-      if (seen[key]) count++;
+      if (seen[key]) { count++; duplicates.push(index); }
       else seen[key] = true;
     });
-    summary = 'Remove duplicate rows within the selection (approximately ' + count + '). Keep the first occurrence.';
-    sample = display.slice(0, 3).map(function(row) { return row.join(' | '); });
+    summary = o.action === 'highlight'
+      ? 'Highlight ' + count + ' duplicate row(s) in yellow, within selected columns. Keep the first occurrence unchanged.'
+      : 'Delete ' + count + ' entire sheet row(s), including cells outside the selection. Keep the first occurrence.';
+    sample = duplicates.slice(0, 3).map(function(index) { return 'Data row ' + (index + 1) + ': ' + display[index].join(' | '); });
   } else if (o.tool === 'case') {
     values.forEach(function(row, r) {
       row.forEach(function(value, c) {
@@ -78,7 +86,9 @@ function plan_(values, formulas, display, o) {
       if (sample.length < 3) sample.push(result.slice(0, 240));
     });
     count = writes.length;
-    summary = 'Create ' + count + ' merged value(s). Replace selected contents with displayed text; clear the remaining source cells.';
+    summary = 'Create ' + count + ' merged value(s). ' + (o.destination === 'newColumns'
+      ? 'Insert ' + (o.direction === 'columns' ? values[0].length : 1) + ' new column(s) immediately right of the selection. Keep source contents.'
+      : 'Replace selected contents with displayed text; clear the remaining source cells.');
   }
-  return {writes: writes, count: count, summary: summary, sample: sample};
+  return {writes: writes, count: count, summary: summary, sample: sample, duplicates: duplicates};
 }

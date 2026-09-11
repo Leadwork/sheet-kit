@@ -29,13 +29,16 @@ button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,
 </div>
 <div class="card" id="options">
 <label class="check"><input type="checkbox" id="header" checked>First selected row is a header</label>
-<div id="dedupeOptions"><p class="hint">Compares all selected columns, ignoring letter case. Only cells inside the selection move up; cells outside stay in place. Select your whole table to keep rows aligned.</p></div>
+<div id="dedupeOptions">
+<label for="duplicateAction">When duplicates are found</label><select id="duplicateAction"><option value="deleteRows">Delete entire rows</option><option value="highlight">Highlight duplicate cells</option></select>
+<p class="hint">Matches all selected columns, ignoring letter case. Keeps the first occurrence. Delete removes the entire sheet row, including unselected columns. Highlight colors only the repeated rows' selected cells yellow; no data is deleted.</p></div>
 <div id="mergeOptions" hidden>
-<label for="direction">Merge direction</label><select id="direction"><option value="rows">Each row → leftmost cell</option><option value="columns">Each column → top cell</option><option value="all">Entire selection → top-left cell</option></select>
+<label for="direction">Merge direction</label><select id="direction"><option value="rows">Each row</option><option value="columns">Each column</option><option value="all">Entire selection</option></select>
+<label for="destination">Put results in</label><select id="destination"><option value="newColumns">New column(s) — keep source data</option><option value="replace">Selected cells — replace source data</option></select>
 <label for="separator">Separate values with</label><select id="separator"><option value=", ">Comma + space</option><option value=" ">Space</option><option value="newline">New line</option><option value="; ">Semicolon + space</option><option value="">Nothing</option><option value="custom">Custom separator</option></select>
 <label for="customSeparator" id="customLabel" hidden>Custom separator</label><input type="text" id="customSeparator" maxlength="100" hidden>
 <label class="check"><input type="checkbox" id="skipEmpty" checked>Skip empty cells</label>
-<p class="hint">Joins displayed text without physically merging cells. Replaces formulas with their displayed results and clears the other selected contents.</p>
+<p class="hint">Joins displayed text. New columns are inserted immediately right of the selection: one for row/all merges, one per source column for column merges. Existing columns shift right. Replace writes to the left/top cell and clears remaining source contents.</p>
 </div>
 <div id="caseOptions" hidden><label for="mode">Text style</label><select id="mode"><option value="lower">lowercase</option><option value="title">Title Case</option><option value="sentence">Sentence case</option></select><p class="hint">Changes plain text only. Formulas, numbers and dates are skipped. Title case capitalizes each word; sentence case also lowercases names and acronyms. Changed cells lose text links and mixed character styles.</p></div>
 <p class="hint">An automatic copy of this sheet is saved before every change.</p>
@@ -43,7 +46,7 @@ button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,
 </div>
 <div class="card" id="review" hidden><div id="location"></div><p id="summary"></p><ul id="samples"></ul><p class="hint">Applies to the range shown above, even if you select other cells. Preview expires after 5 minutes.</p><button class="primary" id="apply">Back up & apply</button><button class="secondary" id="cancel">Cancel preview</button></div>
 <div id="status" role="status" aria-live="polite"></div>
-<footer>SheetKit v0.1 · Your data stays in Google Sheets</footer>
+<footer>SheetKit v0.2 · Your data stays in Google Sheets</footer>
 <script>
 var tool = 'dedupe', token = null;
 var $ = function(id) { return document.getElementById(id); };
@@ -75,7 +78,7 @@ $('preview').addEventListener('click', function() {
     $('samples').replaceChildren();
     result.sample.forEach(function(text) { var li = document.createElement('li'); li.textContent = text; $('samples').appendChild(li); });
     $('review').hidden = false; status('Preview ready. Check the range and changes above.');
-  }).withFailureHandler(fail).previewSheetKit({tool:tool,header:$('header').checked,direction:$('direction').value,separator:separator,skipEmpty:$('skipEmpty').checked,mode:$('mode').value});
+  }).withFailureHandler(fail).previewSheetKit({tool:tool,header:$('header').checked,action:$('duplicateAction').value,destination:$('destination').value,direction:$('direction').value,separator:separator,skipEmpty:$('skipEmpty').checked,mode:$('mode').value});
 });
 $('apply').addEventListener('click', function() {
   if (!token) return;
