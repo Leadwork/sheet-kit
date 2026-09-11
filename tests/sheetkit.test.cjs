@@ -111,7 +111,7 @@ test('reject invalid options, one-cell merges and oversized output', () => {
   assert.throws(()=>c.plan_([['x']],[],[['x']],{tool:'merge',direction:'all'}));
   assert.throws(()=>c.plan_([['x','y']],[],[['x'.repeat(50000),'y']],{tool:'merge',direction:'all',separator:','}));
 });
-function harness({changed=false, backupFailure=false, writeFailure=false} = {}) {
+function harness({changed=false, writeFailure=false} = {}) {
   const calls = [];
   const data = {
     getValues:()=>[['HELLO']],getFormulas:()=>[['']],getDisplayValues:()=>[['HELLO']],
@@ -119,8 +119,7 @@ function harness({changed=false, backupFailure=false, writeFailure=false} = {}) 
     getCell:()=>({setRichTextValue:value=>{calls.push(['write',value]);if(writeFailure)throw Error('Write failed');},clearContent:()=>calls.push('clear-cell')})
   };
   const range = {...data,canEdit:()=>true,isPartOfMerge:()=>false,getNumRows:()=>2,getNumColumns:()=>1,offset:()=>data,activate:()=>calls.push('activate')};
-  const backup = {setName:n=>calls.push('name'),getName:()=> 'SK Backup test'};
-  const sheet = {getSheetId:()=>1,getRange:()=>range,copyTo:()=>{calls.push('backup');if(backupFailure)throw Error('Copy failed');return backup;}};
+  const sheet = {getSheetId:()=>1,getRange:()=>range,copyTo:()=>{throw Error('Unexpected backup creation');}};
   const ss = {getSheets:()=>[sheet],setActiveSheet:()=>{}};
   let record = JSON.stringify({version:2,sheetId:1,a1:'A1:A2',digest:'original',options:{tool:'case',mode:'lower',header:true}});
   const ctx = context({
@@ -132,26 +131,20 @@ function harness({changed=false, backupFailure=false, writeFailure=false} = {}) 
   ctx.digest_ = () => changed ? 'changed' : 'original';
   return {ctx,calls};
 }
-test('apply backs up before writing and consumes the preview', () => {
+test('apply writes without creating a backup and consumes the preview', () => {
   const {ctx,calls} = harness();
-  assert.match(ctx.applySheetKit('token'), /Backup: SK Backup test/);
-  assert.ok(calls.indexOf('backup') < calls.findIndex(x=>Array.isArray(x)));
+  assert.match(ctx.applySheetKit('token'), /Change 1 text cell/);
   assert.deepEqual(plain(calls.find(x=>Array.isArray(x))),['write',{text:'hello'}]);
   assert.throws(()=>ctx.applySheetKit('token'),/expired or already used/);
 });
-test('stale source rejects before backup or mutation and releases lock', () => {
+test('stale source rejects before mutation and releases lock', () => {
   const {ctx,calls} = harness({changed:true});
   assert.throws(()=>ctx.applySheetKit('token'),/source data changed/);
   assert.deepEqual(calls,['unlock']);
 });
-test('backup failure leaves source unchanged', () => {
-  const {ctx,calls} = harness({backupFailure:true});
-  assert.throws(()=>ctx.applySheetKit('token'),/Copy failed/);
-  assert.deepEqual(calls,['backup','unlock']);
-});
-test('partial write failure reports recovery sheet and releases lock', () => {
+test('write failure propagates the error and releases lock', () => {
   const {ctx,calls} = harness({writeFailure:true});
-  assert.throws(()=>ctx.applySheetKit('token'),/original data is in "SK Backup test"/);
+  assert.throws(()=>ctx.applySheetKit('token'),/Write failed/);
   assert.equal(calls.at(-1),'unlock');
 });
 test('sidebar JavaScript parses and manifest scopes are limited', () => {

@@ -41,10 +41,10 @@ button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,
 <p class="hint">Joins displayed text. New columns are inserted immediately right of the selection: one for row/all merges, one per source column for column merges. Existing columns shift right. Replace writes to the left/top cell and clears remaining source contents.</p>
 </div>
 <div id="caseOptions" hidden><label for="mode">Text style</label><select id="mode"><option value="lower">lowercase</option><option value="title">Title Case</option><option value="sentence">Sentence case</option></select><p class="hint">Changes plain text only. Formulas, numbers and dates are skipped. Title case capitalizes each word; sentence case also lowercases names and acronyms. Changed cells lose text links and mixed character styles.</p></div>
-<p class="hint">An automatic copy of this sheet is saved before every change.</p>
+<p class="hint">Review the preview, then apply changes to this sheet.</p>
 <button class="primary" id="preview">Preview selection</button>
 </div>
-<div class="card" id="review" hidden><div id="location"></div><p id="summary"></p><ul id="samples"></ul><p class="hint">Applies to the range shown above, even if you select other cells. Preview expires after 5 minutes.</p><button class="primary" id="apply">Back up & apply</button><button class="secondary" id="cancel">Cancel preview</button></div>
+<div class="card" id="review" hidden><div id="location"></div><p id="summary"></p><ul id="samples"></ul><p class="hint">Applies to the range shown above, even if you select other cells. Preview expires after 5 minutes.</p><button class="primary" id="apply">Apply changes</button><button class="secondary" id="cancel">Cancel preview</button></div>
 <div id="status" role="status" aria-live="polite"></div>
 <footer>SheetKit v0.2 · Your data stays in Google Sheets</footer>
 <script>
@@ -82,7 +82,7 @@ $('preview').addEventListener('click', function() {
 });
 $('apply').addEventListener('click', function() {
   if (!token) return;
-  var current = token; busy(true); status('Creating a backup and applying changes…');
+  var current = token; busy(true); status('Applying changes…');
   google.script.run.withSuccessHandler(function(message) { busy(false); invalidate(); status(message); }).withFailureHandler(fail).applySheetKit(current);
 });
 </script>

@@ -33,7 +33,7 @@ created and that it requests only the spreadsheet and sidebar permissions.
 ## Use
 
 Select a rectangular range, choose a tool, review **First selected row is a header**,
-then click **Preview selection → Back up & apply**.
+then click **Preview selection → Apply changes**.
 
 - **Remove duplicate rows:** compares every selected column and keeps the first
   occurrence. Choose **Delete entire rows** to delete matching sheet rows across
@@ -69,17 +69,12 @@ Preview is tied to its original sheet and range and expires after five minutes.
 Editing the source values, formulas, or display values invalidates it.
 Changing the selection alone does not retarget the pending operation.
 
-## Backups and limits
+## Changes and limits
 
-Before writing, SheetKit copies the whole source sheet into the same spreadsheet,
-named `SK Backup <timestamp> <id>`. If copying fails, no source changes are made.
-For recovery, open the backup and copy the needed original cells back to the source
-sheet. Keep the source sheet when other sheets reference it. Delete backup tabs
-manually when you no longer need them.
-
-Apps Script edits are not guaranteed to work with normal Ctrl+Z. A failed operation
-may partially apply; its error identifies the backup. Backups are ordinary copies,
-not an automatic transactional rollback.
+SheetKit applies changes directly without creating backup sheets. Existing backup
+tabs from earlier versions are left untouched. Preview remains available.
+Apps Script edits are not guaranteed to work with normal Ctrl+Z, and a failed
+operation can partially apply. There is no automatic rollback.
 
 - Maximum 20,000 selected cells per run.
 - Maximum 500 changed text cells per case run.
@@ -89,8 +84,7 @@ not an automatic transactional rollback.
 - Merged source cells and multiple selections are rejected.
 - The document lock serializes SheetKit runs, but cannot block edits by other people.
   Avoid simultaneous editing of the range during an operation.
-- Google execution time and spreadsheet cell limits still apply. Large sheets may
-  lack enough room for a full backup; reduce sheet size or work in a smaller copy.
+- Google execution time and spreadsheet cell limits still apply.
 
 No external network calls, telemetry, API keys, or paid dependencies are included.
 
@@ -116,7 +110,7 @@ mixed-case text, and a literal string starting with `=`.
 2. Merge in each direction with a newline separator and empty-cell skipping.
    Check source contents are cleared and formula-like output remains literal text.
 3. Run all case modes; confirm formulas and typed numbers/dates stay unchanged.
-4. Check each backup contains the original data.
+4. Check operations do not create any backup tabs.
 5. Preview, edit a source cell, and apply: expect a stale-preview error.
 6. Preview, change selection, and apply: expect the original preview range to change.
 7. Select only a subset of table columns and delete duplicate rows; check entire

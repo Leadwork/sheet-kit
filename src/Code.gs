@@ -38,7 +38,6 @@ function previewSheetKit(input) {
 function applySheetKit(token) {
   var lock = LockService.getDocumentLock();
   if (!lock.tryLock(10000)) throw new Error('Another SheetKit operation is running. Try again.');
-  var backup = null;
   try {
     var cache = CacheService.getUserCache(), key = 'sheetkit:' + token;
     var raw = cache.get(key);
@@ -56,8 +55,6 @@ function applySheetKit(token) {
     var plan = plan_(data.getValues(), data.getFormulas(), data.getDisplayValues(), o);
     checkDuplicateRows_(sheet, data, plan, o);
     if (!plan.count) return 'No changes needed.';
-    backup = sheet.copyTo(ss);
-    backup.setName('SK Backup ' + Utilities.formatDate(new Date(), 'Etc/UTC', 'yyyyMMdd HHmmss') + ' ' + Utilities.getUuid().slice(0, 6));
     if (o.tool === 'dedupe') {
       applyDuplicates_(sheet, data, plan.duplicates, o.action);
     } else if (o.tool === 'merge') {
@@ -70,9 +67,7 @@ function applySheetKit(token) {
     if (o.tool === 'dedupe' && o.action !== 'highlight') {
       sheet.getRange(Math.min(range.getRow(), sheet.getMaxRows()), range.getColumn()).activate();
     } else range.activate();
-    return plan.summary + ' Backup: ' + backup.getName();
-  } catch (error) {
-    throw new Error(error.message + (backup ? ' Your original data is in "' + backup.getName() + '".' : ''));
+    return plan.summary;
   } finally {
     lock.releaseLock();
   }
