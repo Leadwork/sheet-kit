@@ -40,8 +40,10 @@ then click **Preview selection → Back up & apply**.
   all columns, including unselected cells, or **Highlight duplicate cells** to
   color only the repeated rows' selected cells yellow without deleting data.
   Text comparisons ignore case; numbers and text remain distinct, dates compare
-  by timestamp, and formulas compare by their calculated values. Blank duplicate
-  rows are included. Hidden/filtered rows inside the selection are included.
+  by timestamp, and formulas compare by their calculated values. Rows empty across
+  all selected columns are skipped, including whitespace and formulas returning
+  empty text. Zero and false are not empty. Partially populated matching rows
+  still count as duplicates. Hidden/filtered rows inside the selection are included.
   Highlighting leaves the first occurrence and unrelated cell colors unchanged;
   conditional formatting can override the visible yellow fill. It does not clear
   highlights from earlier runs. Preview and apply use the same matching logic.

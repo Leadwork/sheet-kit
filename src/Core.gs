@@ -42,6 +42,9 @@ function plan_(values, formulas, display, o) {
   if (o.tool === 'dedupe') {
     var seen = Object.create(null);
     values.forEach(function(row, index) {
+      // Ignore empty records, including whitespace and formulas returning "".
+      // Do not use truthiness: zero and false are real values.
+      if (row.every(function(value) { return typeof value === 'string' && value.trim() === ''; })) return;
       var key = rowKey_(row);
       if (seen[key]) { count++; duplicates.push(index); }
       else seen[key] = true;

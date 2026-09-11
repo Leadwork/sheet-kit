@@ -14,8 +14,20 @@ const plain = x => JSON.parse(JSON.stringify(x));
 test('duplicate plan identifies only later matches across all selected columns', () => {
   const data = [['A',1],['a',1],['a',2],['A',1],['', ''],['', '']];
   const p = c.plan_(data, [], data, {tool:'dedupe',action:'highlight'});
-  assert.deepEqual(plain(p.duplicates), [1,3,5]);
-  assert.match(p.summary, /Highlight 3/);
+  assert.deepEqual(plain(p.duplicates), [1,3]);
+  assert.match(p.summary, /Highlight 2/);
+});
+test('empty selections never highlight or delete; zero and false remain comparable', () => {
+  for (const action of ['highlight','deleteRows']) {
+    const blanks = [[''],[''],['  '],['\t']];
+    assert.equal(c.plan_(blanks,[],blanks,{tool:'dedupe',action}).count,0);
+    const data = [[''],[''],[0],[0],[false],[false],['x'],['x']];
+    assert.deepEqual(plain(c.plan_(data,[],data,{tool:'dedupe',action}).duplicates),[3,5,7]);
+    const partial = [['','x'],['','x'],['',''],['','']];
+    assert.deepEqual(plain(c.plan_(partial,[],partial,{tool:'dedupe',action}).duplicates),[1]);
+    const formulaBlank = [[''],['']];
+    assert.equal(c.plan_(formulaBlank,[['=""'],['=""']],formulaBlank,{tool:'dedupe',action}).count,0);
+  }
 });
 test('full row deletion uses absolute row offsets and bottom-up groups', () => {
   const rows = Array.from({length:12}, (_,i)=>['selected '+i,'outside '+i]);
