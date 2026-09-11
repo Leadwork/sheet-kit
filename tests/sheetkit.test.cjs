@@ -11,6 +11,15 @@ function context(extra = {}) {
 }
 const c = context();
 const plain = x => JSON.parse(JSON.stringify(x));
+test('public add-on install and open only create the menu without reading user data', () => {
+  const calls=[];
+  const menu={addItem:(title,fn)=>{calls.push([title,fn]);return menu;},addToUi:()=>calls.push('menu')};
+  const publicContext=vm.createContext({SpreadsheetApp:{getUi:()=>({createAddonMenu:()=>menu})}});
+  vm.runInContext(fs.readFileSync(path.join(root,'marketplace/apps-script/Code.gs'),'utf8'),publicContext);
+  publicContext.onOpen({authMode:'NONE'});
+  publicContext.onInstall({authMode:'FULL'});
+  assert.deepEqual(calls,[['Open tools','showSheetKit'],'menu',['Open tools','showSheetKit'],'menu']);
+});
 test('duplicate plan identifies only later matches across all selected columns', () => {
   const data = [['A',1],['a',1],['a',2],['A',1],['', ''],['', '']];
   const p = c.plan_(data, [], data, {tool:'dedupe',action:'highlight'});
@@ -120,8 +129,8 @@ function harness({changed=false, writeFailure=false} = {}) {
   };
   const range = {...data,canEdit:()=>true,isPartOfMerge:()=>false,getNumRows:()=>2,getNumColumns:()=>1,offset:()=>data,activate:()=>calls.push('activate')};
   const sheet = {getSheetId:()=>1,getRange:()=>range,copyTo:()=>{throw Error('Unexpected backup creation');}};
-  const ss = {getSheets:()=>[sheet],setActiveSheet:()=>{}};
-  let record = JSON.stringify({version:2,sheetId:1,a1:'A1:A2',digest:'original',options:{tool:'case',mode:'lower',header:true}});
+  const ss = {getId:()=> 'test-spreadsheet',getSheets:()=>[sheet],setActiveSheet:()=>{}};
+  let record = JSON.stringify({version:3,spreadsheetId:'test-spreadsheet',sheetId:1,a1:'A1:A2',digest:'original',options:{tool:'case',mode:'lower',header:true}});
   const ctx = context({
     LockService:{getDocumentLock:()=>({tryLock:()=>true,releaseLock:()=>calls.push('unlock')})},
     CacheService:{getUserCache:()=>({get:()=>record,remove:()=>{record=null;}})},
@@ -129,8 +138,14 @@ function harness({changed=false, writeFailure=false} = {}) {
     Utilities:{formatDate:()=> 'date',getUuid:()=> 'abcdef'}
   });
   ctx.digest_ = () => changed ? 'changed' : 'original';
-  return {ctx,calls};
+  return {ctx,calls,ss};
 }
+test('preview from a different spreadsheet cannot mutate this spreadsheet', () => {
+  const {ctx,calls,ss} = harness();
+  ss.getId = () => 'other-spreadsheet';
+  assert.throws(()=>ctx.applySheetKit('token'), /another spreadsheet/);
+  assert.deepEqual(calls,['unlock']);
+});
 test('apply writes without creating a backup and consumes the preview', () => {
   const {ctx,calls} = harness();
   assert.match(ctx.applySheetKit('token'), /Change 1 text cell/);

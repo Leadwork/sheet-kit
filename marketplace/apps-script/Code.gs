@@ -1,6 +1,6 @@
 /** @OnlyCurrentDoc */
 function onOpen() {
-  SpreadsheetApp.getUi().createMenu('SheetKit').addItem('Open tools', 'showSheetKit').addToUi();
+  SpreadsheetApp.getUi().createAddonMenu().addItem('Open tools', 'showSheetKit').addToUi();
 }
 function showSheetKit() {
   SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutputFromFile('Sidebar').setTitle('SheetKit'));
@@ -123,3 +123,6 @@ function writeText_(cell, text) {
   if (text === '') cell.clearContent();
   else cell.setRichTextValue(SpreadsheetApp.newRichTextValue().setText(text).build());
 }
+
+// Populate the Extensions menu when installed inside an editor.
+function onInstall(e) { onOpen(e); }

@@ -1,5 +1,14 @@
 # SheetKit
 
+## Marketplace preparation
+
+Public distribution is being prepared; there is no Marketplace install link yet.
+See [publishing steps](marketplace/PUBLISHING.md), [listing draft](marketplace/LISTING.md),
+and [privacy draft](marketplace/PRIVACY-DRAFT.md).
+Run `node scripts/build-marketplace.cjs` to generate the Editor add-on files.
+Use that build in a separate publishing project; the personal installation below
+continues to use src.
+
 ## Update an existing installation to v0.2
 
 Replace the contents of **Code.gs**, **Core.gs**, and **Sidebar.html** in your

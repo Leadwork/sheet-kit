@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{font-family:Arial,sans-serif;color:#18332b;background:#f4f7f5;font-size:13px}
+*{box-sizing:border-box}body{margin:0;padding:18px 14px}header{margin-bottom:22px}
+.brand{font-size:23px;font-weight:750;letter-spacing:-1px}.brand span{color:#187c59}
+.subtitle{color:#60756b;line-height:1.5;margin:7px 0 0}.badge{display:inline-block;background:#dceee5;color:#206849;font-size:10px;padding:4px 7px;border-radius:5px;margin-bottom:12px;letter-spacing:1px}
+.tools{display:grid;gap:8px;margin-bottom:20px}.tool{background:white;border:1px solid #d6e1da;border-radius:10px;padding:12px;text-align:left;cursor:pointer;color:inherit;font:inherit}
+.tool[aria-pressed=true]{border:2px solid #187c59;padding:11px;background:#eaf5ee}.tool strong{display:block;margin-bottom:4px}.tool small{color:#60756b}
+.card{padding:14px;border:1px solid #dce4df;border-radius:12px;background:white;margin-bottom:12px}
+label{display:block;margin:0 0 8px;font-weight:600}select,input[type=text]{width:100%;padding:9px;border:1px solid #bccdc3;border-radius:6px;background:white;color:inherit;margin-bottom:14px}
+.check{display:flex;gap:7px;align-items:flex-start;font-weight:400;line-height:1.5;margin-bottom:10px}.check input{accent-color:#187c59;margin-top:3px}
+.hint{color:#60756b;font-size:12px;line-height:1.5;margin:0 0 12px}.primary,.secondary{width:100%;border:0;border-radius:8px;padding:11px;font:inherit;font-weight:600;cursor:pointer}.primary{background:#176c4d;color:white}.secondary{background:#e7eee9;color:#28583f;margin-top:8px}
+button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #54a684;outline-offset:2px}
+[hidden]{display:none!important}#status{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.6;margin-top:12px}
+.error{color:#a52b2b}.success{color:#176c4d}#location{font-weight:600;overflow-wrap:anywhere}#summary{line-height:1.5}
+#samples{padding-left:17px;color:#52695e;overflow-wrap:anywhere;font-size:12px;white-space:pre-wrap}footer{font-size:11px;color:#72857b;text-align:center;margin-top:18px}
+</style>
+</head>
+<body>
+<header><div class="badge">SMALL TOOLS. CLEAN SHEETS.</div><div class="brand">Sheet<span>Kit</span></div><p class="subtitle">Select your cells. Make them work better.</p></header>
+<div class="tools" role="group" aria-label="Choose a tool">
+<button class="tool" data-tool="dedupe" aria-pressed="true"><strong>01 &nbsp; Remove duplicate rows</strong><small>Keep the first. Clear the repeats.</small></button>
+<button class="tool" data-tool="merge" aria-pressed="false"><strong>02 &nbsp; Merge values</strong><small>Bring text together, your way.</small></button>
+<button class="tool" data-tool="case" aria-pressed="false"><strong>03 &nbsp; Change text case</strong><small>A consistent style in one step.</small></button>
+</div>
+<div class="card" id="options">
+<label class="check"><input type="checkbox" id="header" checked>First selected row is a header</label>
+<div id="dedupeOptions">
+<label for="duplicateAction">When duplicates are found</label><select id="duplicateAction"><option value="deleteRows">Delete entire rows</option><option value="highlight">Highlight duplicate cells</option></select>
+<p class="hint">Matches all selected columns, ignoring letter case. Keeps the first occurrence. Delete removes the entire sheet row, including unselected columns. Highlight colors only the repeated rows' selected cells yellow; no data is deleted.</p></div>
+<div id="mergeOptions" hidden>
+<label for="direction">Merge direction</label><select id="direction"><option value="rows">Each row</option><option value="columns">Each column</option><option value="all">Entire selection</option></select>
+<label for="destination">Put results in</label><select id="destination"><option value="newColumns">New column(s) — keep source data</option><option value="replace">Selected cells — replace source data</option></select>
+<label for="separator">Separate values with</label><select id="separator"><option value=", ">Comma + space</option><option value=" ">Space</option><option value="newline">New line</option><option value="; ">Semicolon + space</option><option value="">Nothing</option><option value="custom">Custom separator</option></select>
+<label for="customSeparator" id="customLabel" hidden>Custom separator</label><input type="text" id="customSeparator" maxlength="100" hidden>
+<label class="check"><input type="checkbox" id="skipEmpty" checked>Skip empty cells</label>
+<p class="hint">Joins displayed text. New columns are inserted immediately right of the selection: one for row/all merges, one per source column for column merges. Existing columns shift right. Replace writes to the left/top cell and clears remaining source contents.</p>
+</div>
+<div id="caseOptions" hidden><label for="mode">Text style</label><select id="mode"><option value="lower">lowercase</option><option value="title">Title Case</option><option value="sentence">Sentence case</option></select><p class="hint">Changes plain text only. Formulas, numbers and dates are skipped. Title case capitalizes each word; sentence case also lowercases names and acronyms. Changed cells lose text links and mixed character styles.</p></div>
+<p class="hint">Review the preview, then apply changes to this sheet.</p>
+<button class="primary" id="preview">Preview selection</button>
+</div>
+<div class="card" id="review" hidden><div id="location"></div><p id="summary"></p><ul id="samples"></ul><p class="hint">Applies to the range shown above, even if you select other cells. Preview expires after 5 minutes.</p><button class="primary" id="apply">Apply changes</button><button class="secondary" id="cancel">Cancel preview</button></div>
+<div id="status" role="status" aria-live="polite"></div>
+<footer>SheetKit v0.2 · Your data stays in Google Sheets</footer>
+<script>
+var tool = 'dedupe', token = null;
+var $ = function(id) { return document.getElementById(id); };
+function invalidate() { token = null; $('review').hidden = true; }
+function busy(value) { document.querySelectorAll('button,input,select').forEach(function(el) { el.disabled = value; }); }
+function status(message, error) { $('status').textContent = message; $('status').className = error ? 'error' : 'success'; }
+function fail(error) { busy(false); invalidate(); status(error.message || String(error), true); }
+document.querySelectorAll('[data-tool]').forEach(function(button) {
+  button.addEventListener('click', function() {
+    tool = button.dataset.tool; invalidate(); status('');
+    document.querySelectorAll('[data-tool]').forEach(function(b) { b.setAttribute('aria-pressed', String(b === button)); });
+    ['dedupe','merge','case'].forEach(function(name) { $(name + 'Options').hidden = name !== tool; });
+  });
+});
+$('options').addEventListener('change', invalidate);
+$('customSeparator').addEventListener('input', invalidate);
+$('separator').addEventListener('change', function() {
+  $('customLabel').hidden = $('customSeparator').hidden = this.value !== 'custom';
+});
+$('cancel').addEventListener('click', invalidate);
+$('preview').addEventListener('click', function() {
+  invalidate(); busy(true); status('Reading your selection…');
+  var separator = $('separator').value;
+  if (separator === 'newline') separator = '\n';
+  if (separator === 'custom') separator = $('customSeparator').value;
+  google.script.run.withSuccessHandler(function(result) {
+    busy(false); token = result.token;
+    $('location').textContent = result.location; $('summary').textContent = result.summary;
+    $('samples').replaceChildren();
+    result.sample.forEach(function(text) { var li = document.createElement('li'); li.textContent = text; $('samples').appendChild(li); });
+    $('review').hidden = false; status('Preview ready. Check the range and changes above.');
+  }).withFailureHandler(fail).previewSheetKit({tool:tool,header:$('header').checked,action:$('duplicateAction').value,destination:$('destination').value,direction:$('direction').value,separator:separator,skipEmpty:$('skipEmpty').checked,mode:$('mode').value});
+});
+$('apply').addEventListener('click', function() {
+  if (!token) return;
+  var current = token; busy(true); status('Applying changes…');
+  google.script.run.withSuccessHandler(function(message) { busy(false); invalidate(); status(message); }).withFailureHandler(fail).applySheetKit(current);
+});
+</script>
+</body>
+</html>
